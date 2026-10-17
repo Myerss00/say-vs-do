@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Say vs. Do</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">
+        <h1>Say <span>vs.</span> Do</h1>
+        <p class="tagline">Verificador de afirmaciones en directo</p>
+      </div>
+      <div class="top-right">
+        <span id="mockBadge" class="badge badge-mock" hidden>MOCK</span>
+        <div class="toggle" role="group" aria-label="Modo">
+          <button type="button" class="toggle-btn" data-mode="news" aria-pressed="true">Noticias</button>
+          <button type="button" class="toggle-btn" data-mode="corporate" aria-pressed="false">Empresas</button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="panel">
+        <label for="transcript" class="label">Pegar transcripción</label>
+        <textarea id="transcript" rows="6" maxlength="5000"
+          placeholder="Pega aquí lo que se dijo. Ej.: «Alemania generó en 2025 el 60 % de su electricidad con renovables.»"></textarea>
+        <div class="row">
+          <span id="charCount" class="muted">0 / 5000</span>
+          <button id="checkBtn" type="button" class="btn btn-primary">Comprobar</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="row">
+          <div class="live-controls">
+            <button id="liveBtn" type="button" class="btn btn-live">🎙️ En directo</button>
+            <select id="langSelect" aria-label="Idioma del micrófono">
+              <option value="de-DE">Deutsch (de-DE)</option>
+              <option value="en-US">English (en-US)</option>
+              <option value="es-ES" selected>Español (es-ES)</option>
+            </select>
+          </div>
+          <span id="liveState" class="muted">Micrófono apagado</span>
+        </div>
+        <p id="interim" class="interim" aria-live="polite"></p>
+      </section>
+
+      <p id="status" class="status" role="status"></p>
+
+      <section id="results" class="results" aria-live="polite"></section>
+    </main>
+
+    <footer class="foot">
+      <span id="cost" class="muted"></span>
+      <span class="muted">Los resultados son orientativos; revisa siempre la fuente.</span>
+    </footer>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
