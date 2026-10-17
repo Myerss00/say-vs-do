@@ -121,6 +121,7 @@ function renderResults(data) {
   setStatus(data.results.length ? '' : 'No se detectaron afirmaciones comprobables en ese texto.');
   // Newest first
   for (const r of [...data.results].reverse()) els.results.prepend(renderCard(r, isMock));
+  if (data.results.length) els.results.scrollIntoView({ behavior: 'smooth', block: 'start' });
   if (typeof data.session_cost_usd === 'number') {
     els.cost.textContent = `Coste de la sesión: $${data.session_cost_usd.toFixed(4)} / $${data.max_session_cost_usd}`;
   }
