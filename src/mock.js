@@ -46,19 +46,17 @@ export function mockSearch(claim) {
 }
 
 const MOCK_TEXT = {
-  de: 'MOCK: Beispielurteil ohne echtes Modell (kein Nebius-Schlüssel).',
-  en: 'MOCK: example verdict without a real model (no Nebius key).',
-  es: 'MOCK: veredicto de ejemplo sin modelo real (sin clave de Nebius).',
+  de: 'DEMO: kein echtes Urteil. Das Modell ist nicht verbunden (kein Nebius-Schlüssel).',
+  en: 'DEMO: no real verdict. The model is not connected (no Nebius key).',
+  es: 'DEMO: sin veredicto real. El modelo no está conectado (falta la clave de Nebius).',
 };
-const VERDICT_CYCLE = ['SUPPORTED', 'MISLEADING', 'FALSE', 'UNVERIFIABLE'];
 
-// Deterministic: the same claim always gets the same fake verdict (stable demos/tests).
+// Never invents a verdict: `demo: true` tells the UI to show a neutral grey card.
 export function mockJudge(claim, sources) {
-  let h = 0;
-  for (const ch of claim.claim) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return {
-    verdict: VERDICT_CYCLE[h % VERDICT_CYCLE.length],
-    confidence: 0.5,
+    verdict: 'UNVERIFIABLE',
+    confidence: null,
+    demo: true,
     explanation: MOCK_TEXT[claim.language] || MOCK_TEXT.en,
     source_url: sources[0]?.url ?? null,
   };

@@ -89,12 +89,16 @@ async function check(text) {
 
 // ---- rendering ----
 function renderCard(r, isMock) {
-  const ui = VERDICT_UI[r.verdict] || VERDICT_UI.UNVERIFIABLE;
+  const ui = r.demo ? { cls: 'v-demo' } : VERDICT_UI[r.verdict] || VERDICT_UI.UNVERIFIABLE;
   const card = el('article', `card ${ui.cls}`);
 
   const head = el('div', 'card-head');
-  head.append(el('span', 'verdict', `${ui.icon} ${r.verdict}`));
-  head.append(el('span', 'verdict-es', ui.label));
+  if (r.demo) {
+    head.append(el('span', 'verdict', 'DEMO · sin veredicto real'));
+  } else {
+    head.append(el('span', 'verdict', `${ui.icon} ${r.verdict}`));
+    head.append(el('span', 'verdict-es', ui.label));
+  }
   if (isMock) head.append(el('span', 'badge badge-mock small', 'MOCK'));
   head.append(el('span', 'tag', r.type));
   if (typeof r.confidence === 'number') head.append(el('span', 'conf', `${Math.round(r.confidence * 100)} %`));

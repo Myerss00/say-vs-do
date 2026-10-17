@@ -41,10 +41,15 @@ Al arrancar, el servidor imprime qué variables están definidas (`true`/`false`
 
 Si falta alguna clave, **ese paso** usa datos de prueba y la interfaz muestra la insignia **MOCK**:
 
-- Sin `NEBIUS_*`/`NEMOTRON_MODEL`: las afirmaciones se detectan con una heurística simple y los veredictos son de ejemplo (el texto empieza por «MOCK:»).
+- Sin `NEBIUS_*`/`NEMOTRON_MODEL`: las afirmaciones se detectan con una heurística simple y **no se emite veredicto**. La tarjeta sale en gris como «DEMO · sin veredicto real», sin ✅/❌ y sin porcentaje.
 - Sin `TAVILY_API_KEY`: las fuentes son `https://example.org/mock-source-*`.
 
-Así la app funciona de punta a punta sin claves. Los veredictos MOCK **no son reales**.
+Así la app funciona de punta a punta sin claves, pero nunca inventa un veredicto.
+
+## Evaluación de calidad (`npm run eval`)
+
+`eval/claims.json` contiene 12 afirmaciones con respuesta conocida, en DE/EN/ES y en los dos modos: 4 verdaderas, 4 falsas y 4 *green claims* engañosas (modo Empresas). `npm run eval` las pasa por Tavily y Nemotron **reales** y muestra una tabla (afirmación / esperado / obtenido / ok) con el porcentaje de aciertos.
+Sin claves no llama a nada: imprime «Faltan claves: rellena .env» y termina. Cada ejecución gasta unas 12 búsquedas y 12 llamadas al LLM.
 
 ## Uso
 

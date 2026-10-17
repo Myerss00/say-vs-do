@@ -59,6 +59,14 @@ test('judge: valid output (with <think> block and code fence) is accepted', asyn
   const { result } = await judgeClaim(claim, goodSources, { llm: fakeLlm(reply) });
   assert.equal(result.verdict, 'MISLEADING');
   assert.equal(result.source_url, 'https://energy.example/report');
+  assert.equal(result.demo, undefined, 'real verdicts are never flagged as demo');
+});
+
+test('judge: mock mode returns a neutral demo result, never an invented verdict', async () => {
+  const { result } = await judgeClaim(claim, goodSources, { llm: null });
+  assert.equal(result.demo, true);
+  assert.equal(result.verdict, 'UNVERIFIABLE');
+  assert.equal(result.confidence, null);
 });
 
 test('judge: source_url not among the search results is dropped (no invented links)', async () => {

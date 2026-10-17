@@ -1,0 +1,16 @@
+[
+  { "claim": "Berlin is the capital of Germany.", "language": "en", "mode": "news", "expected": "SUPPORTED" },
+  { "claim": "La Torre Eiffel está en París.", "language": "es", "mode": "news", "expected": "SUPPORTED" },
+  { "claim": "Der Mount Everest ist der höchste Berg der Erde über dem Meeresspiegel.", "language": "de", "mode": "news", "expected": "SUPPORTED" },
+  { "claim": "El agua hierve a 100 grados Celsius a nivel del mar.", "language": "es", "mode": "news", "expected": "SUPPORTED" },
+
+  { "claim": "Die Erde ist flach.", "language": "de", "mode": "news", "expected": "FALSE" },
+  { "claim": "Water boils at 50°C at sea level.", "language": "en", "mode": "news", "expected": "FALSE" },
+  { "claim": "Berlin es la capital de Francia.", "language": "es", "mode": "news", "expected": "FALSE" },
+  { "claim": "Die Sonne dreht sich um die Erde.", "language": "de", "mode": "news", "expected": "FALSE" },
+
+  { "claim": "Our product is 100% climate neutral thanks to carbon offsetting.", "language": "en", "mode": "corporate", "expected": "MISLEADING" },
+  { "claim": "Nuestras botellas son eco-friendly.", "language": "es", "mode": "corporate", "expected": "MISLEADING" },
+  { "claim": "Unsere Flüge sind klimaneutral, weil wir CO2-Zertifikate kaufen.", "language": "de", "mode": "corporate", "expected": "MISLEADING" },
+  { "claim": "Nuestra empresa es sostenible porque cumple con la ley europea de residuos.", "language": "es", "mode": "corporate", "expected": "MISLEADING" }
+]

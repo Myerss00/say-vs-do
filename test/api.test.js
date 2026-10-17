@@ -46,8 +46,11 @@ test('api: mock check returns verdict cards marked as mock', async () => {
   assert.deepEqual(data.mock, { llm: true, search: true });
   assert.ok(data.results.length >= 1);
   const r = data.results[0];
-  assert.ok(['SUPPORTED', 'MISLEADING', 'FALSE', 'UNVERIFIABLE'].includes(r.verdict));
-  assert.match(r.explanation, /MOCK/);
+  // Mock mode must never present a real-looking verdict.
+  assert.equal(r.demo, true);
+  assert.equal(r.verdict, 'UNVERIFIABLE');
+  assert.equal(r.confidence, null);
+  assert.match(r.explanation, /DEMO/);
   assert.ok(r.sources.every((s) => !('content' in s)), 'raw source content is not sent to the browser');
 });
 

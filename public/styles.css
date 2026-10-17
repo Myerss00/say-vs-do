@@ -153,6 +153,8 @@ body.mode-corporate .toggle-btn[aria-pressed='true'] { background: var(--accent-
 .v-misleading .verdict { color: var(--misleading); }
 .v-false .verdict { color: var(--false); }
 .v-unverifiable .verdict { color: var(--unverifiable); }
+.card.v-demo { border-left-color: var(--border); border-left-style: dashed; }
+.v-demo .verdict { color: var(--muted); font-weight: 600; }
 .verdict-es { color: var(--muted); font-size: 13px; }
 .tag {
   font-size: 11px;
