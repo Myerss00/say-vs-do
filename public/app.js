@@ -16,11 +16,33 @@ const els = {
 };
 
 const VERDICT_UI = {
-  SUPPORTED: { icon: '✅', label: 'Respaldada', cls: 'v-supported' },
-  MISLEADING: { icon: '⚠️', label: 'Engañosa', cls: 'v-misleading' },
-  FALSE: { icon: '❌', label: 'Falsa', cls: 'v-false' },
-  UNVERIFIABLE: { icon: '❔', label: 'No verificable', cls: 'v-unverifiable' },
+  SUPPORTED: { icon: '✓', label: 'Respaldada', cls: 'v-supported' },
+  MISLEADING: { icon: '!', label: 'Engañosa', cls: 'v-misleading' },
+  FALSE: { icon: '✕', label: 'Falsa', cls: 'v-false' },
+  UNVERIFIABLE: { icon: '?', label: 'No verificable', cls: 'v-unverifiable' },
 };
+
+// ---- light / dark theme (follows the OS until the user picks one) ----
+function applyTheme(theme) {
+  if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+}
+try {
+  applyTheme(localStorage.getItem('svd-theme'));
+} catch {
+  /* storage blocked: follow the OS */
+}
+$('themeBtn').addEventListener('click', () => {
+  const current =
+    document.documentElement.dataset.theme ||
+    (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const next = current === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  try {
+    localStorage.setItem('svd-theme', next);
+  } catch {
+    /* ignore */
+  }
+});
 
 let mode = 'news';
 let mockState = { llm: false, search: false };
@@ -96,12 +118,15 @@ function renderCard(r, isMock) {
   if (r.demo) {
     head.append(el('span', 'verdict', 'DEMO · sin veredicto real'));
   } else {
-    head.append(el('span', 'verdict', `${ui.icon} ${r.verdict}`));
-    head.append(el('span', 'verdict-es', ui.label));
+    const pill = el('span', 'verdict');
+    pill.append(el('span', 'verdict-icon', ui.icon), r.verdict);
+    head.append(pill, el('span', 'verdict-es', ui.label));
   }
-  if (isMock) head.append(el('span', 'badge badge-mock small', 'MOCK'));
-  head.append(el('span', 'tag', r.type));
-  if (typeof r.confidence === 'number') head.append(el('span', 'conf', `${Math.round(r.confidence * 100)} %`));
+  const meta = el('div', 'meta');
+  if (isMock) meta.append(el('span', 'pill pill-mock', 'MOCK'));
+  meta.append(el('span', 'chip', r.type));
+  if (typeof r.confidence === 'number') meta.append(el('span', 'chip', `${Math.round(r.confidence * 100)} %`));
+  head.append(meta);
   card.append(head);
 
   card.append(el('p', 'claim', `«${r.claim}»`));
@@ -109,7 +134,7 @@ function renderCard(r, isMock) {
 
   if (isHttpUrl(r.source_url)) {
     const src = r.sources?.find((s) => s.url === r.source_url);
-    const a = el('a', 'source', `Fuente: ${src?.title || new URL(r.source_url).hostname}`);
+    const a = el('a', 'source', `↗ ${src?.title || new URL(r.source_url).hostname}`);
     a.href = r.source_url;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
@@ -174,7 +199,8 @@ let listening = false;
 function setLive(on) {
   listening = on;
   els.liveBtn.classList.toggle('on', on);
-  els.liveBtn.textContent = on ? '⏹️ Detener' : '🎙️ En directo';
+  els.liveBtn.setAttribute('aria-pressed', String(on));
+  els.liveBtn.querySelector('.mic-label').textContent = on ? 'Detener' : 'En directo';
   els.liveState.textContent = on ? `Escuchando (${els.langSelect.value})…` : 'Micrófono apagado';
   els.langSelect.disabled = on;
   if (!on) els.interim.textContent = '';
