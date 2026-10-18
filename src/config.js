@@ -17,23 +17,44 @@ export const OPTIONAL_VARS = [
   'LLM_USD_PER_1M_INPUT_TOKENS',
   'LLM_USD_PER_1M_OUTPUT_TOKENS',
   'TAVILY_USD_PER_SEARCH',
+  'NVIDIA_API_KEY',
+  'NVIDIA_BASE_URL',
+  'NVIDIA_MODEL',
   'DEMO_CACHE',
   'PORT',
 ];
 
+const cleanUrl = (name) => (process.env[name] || '').trim().replace(/\/+$/, '');
+
+// Human-readable provider name shown on the cards (derived from the base URL, never the key).
+export function providerName(baseUrl) {
+  if (/nebius/i.test(baseUrl)) return 'Nebius Token Factory';
+  if (/nvidia/i.test(baseUrl)) return 'NVIDIA API';
+  try {
+    return new URL(baseUrl).hostname;
+  } catch {
+    return 'LLM';
+  }
+}
+
+function provider(keyVar, urlVar, modelVar) {
+  if (!(has(keyVar) && has(urlVar) && has(modelVar))) return null;
+  const baseUrl = cleanUrl(urlVar);
+  return { apiKey: process.env[keyVar], baseUrl, model: process.env[modelVar].trim(), name: providerName(baseUrl) };
+}
+
 export function loadConfig() {
-  const llmReady = has('NEBIUS_API_KEY') && has('NEBIUS_BASE_URL') && has('NEMOTRON_MODEL');
+  // Primary LLM (Nebius Token Factory) and optional fallback (NVIDIA API) used on error/timeout/429.
+  const primary = provider('NEBIUS_API_KEY', 'NEBIUS_BASE_URL', 'NEMOTRON_MODEL');
+  const fallback = provider('NVIDIA_API_KEY', 'NVIDIA_BASE_URL', 'NVIDIA_MODEL');
+  const main = primary ?? fallback;
   const searchReady = has('TAVILY_API_KEY');
   return {
     port: num('PORT', 3000),
     // Demo cache of real verdicts in cache/claims.json. DEMO_CACHE=off disables it.
     cache: { enabled: (process.env.DEMO_CACHE || '').trim().toLowerCase() !== 'off' },
-    llm: {
-      mock: !llmReady,
-      apiKey: process.env.NEBIUS_API_KEY,
-      baseUrl: (process.env.NEBIUS_BASE_URL || '').trim().replace(/\/+$/, ''),
-      model: (process.env.NEMOTRON_MODEL || '').trim(),
-    },
+    llm: main ? { mock: false, ...main } : { mock: true },
+    llmFallback: primary && fallback ? fallback : null,
     search: {
       mock: !searchReady,
       apiKey: process.env.TAVILY_API_KEY,

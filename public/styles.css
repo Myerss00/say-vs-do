@@ -537,6 +537,12 @@ p.source {
   color: var(--muted);
   border: 0;
 }
+.provider {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+}
 
 /* ---------- footer ---------- */
 .foot {

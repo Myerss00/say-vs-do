@@ -76,13 +76,14 @@ export async function judgeClaim(claim, sources, { mode = 'news', llm = null } =
     // The link shown to users must be one of the real search results, never a model invention.
     const allowed = new Set(sources.map((s) => s.url));
     result.source_url = allowed.has(result.source_url) ? result.source_url : null;
+    if (reply.provider) result.provider = reply.provider; // which LLM provider gave this verdict
     return { result, usage: reply.usage, valid: true }; // valid = real model verdict, safe to cache
   } catch {
     return { result: unverifiable(claim), usage: reply?.usage ?? NO_USAGE };
   }
 }
 
-const CACHED_FIELDS = ['claim', 'type', 'language', 'verdict', 'confidence', 'explanation', 'source_url', 'sources'];
+const CACHED_FIELDS = ['claim', 'type', 'language', 'verdict', 'confidence', 'explanation', 'source_url', 'sources', 'provider'];
 const pick = (obj, keys) => Object.fromEntries(keys.filter((k) => k in obj).map((k) => [k, obj[k]]));
 
 // Whole flow for one request.

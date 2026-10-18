@@ -47,7 +47,7 @@ mic (Web Speech API) or pasted text
                  live verdict cards · score panel · demo cache · audit log
 ```
 
-- **Model:** NVIDIA **Nemotron 3.5 Super** (`nvidia/nemotron-3.5-super-vl-120b-a12b`) through the OpenAI-compatible API at `build.nvidia.com` (`https://integrate.api.nvidia.com/v1`). The base URL and model come only from `.env`, so it also runs on **Nebius Token Factory** by changing `NEBIUS_BASE_URL` and `NEMOTRON_MODEL`.
+- **Model:** NVIDIA **Nemotron 3.5 Super** served by **Nebius Token Factory** (`nvidia/Nemotron-3.5-Super-VL`, `https://api.tokenfactory.nebius.com/v1`) as the primary provider, with the **NVIDIA API** (`build.nvidia.com`, `nvidia/nemotron-3.5-super-vl-120b-a12b`) as an **automatic fallback** on timeout, rate limit (429), server error or network failure. Each card shows which provider gave the verdict ("Nemotron · Nebius Token Factory"). Base URLs and models come only from `.env`.
 - **Structured output:** requests use `response_format: json_schema`, so the reasoning model always returns valid JSON. If a provider does not support it, the client falls back to plain JSON prompts automatically.
 - **Evidence:** [Tavily](https://tavily.com) search, 5 results per claim.
 - **Server:** Node.js + Express. **Frontend:** plain HTML/CSS/JS, no framework, no CDN, system fonts.
@@ -57,14 +57,19 @@ mic (Web Speech API) or pasted text
 
 Evaluation with the real APIs on 12 claims with a known answer (DE / EN / ES, both modes; `npm run eval`):
 
-**10 / 12 correct (83 %).** The two misses were cautious **UNVERIFIABLE** answers; no false claim was marked as true.
+| Provider (Nemotron 3.5 Super) | Accuracy | Eval run time |
+|---|---|---|
+| **Nebius Token Factory** (primary) | **12 / 12 (100 %)** | 66 s |
+| NVIDIA API (fallback) | 10 / 12 (83 %) | 144 s |
+
+The NVIDIA misses were cautious **UNVERIFIABLE** answers; no false claim was marked as true by either provider.
 
 Example from the live app:
 
 - "Alemania generó en 2025 el 60 % de su electricidad con renovables." → **MISLEADING** — sources report 58.6 % (Enerdata).
 - "La Torre Eiffel está en Berlín." → **FALSE** — it is in Paris (Wikipedia).
 
-Typical latency: 10–30 s for a new text (search + reasoning model), ~10 ms from the cache.
+Typical latency for a new text: a few seconds on Nebius Token Factory, 10–30 s on the NVIDIA fallback; ~10 ms from the cache.
 
 ## Security
 
@@ -80,9 +85,39 @@ Typical latency: 10–30 s for a new text (search + reasoning model), ~10 ms fro
 | Audit log (`logs/`, gitignored): claim with PII masked (emails, phones, IBANs), source URLs, tokens, verdict, hashed session id — no keys | `src/audit.js` |
 | helmet: CSP `default-src 'self'`, nosniff, no `x-powered-by`; errors without stack traces | `src/server.js` |
 | Frontend never uses `innerHTML` (no XSS from model or source text) | `public/app.js` |
-| Only two external hosts are called: the LLM base URL from `.env` and `api.tavily.com`. The model cannot run code or touch the file system | `src/llm.js`, `src/pipeline.js` |
+| Only allowlisted external hosts are called: the LLM base URLs from `.env` and `api.tavily.com`. The model cannot run code or touch the file system | `src/llm.js`, `src/pipeline.js` |
 
 Known limits (demo build): no user accounts and no HTTPS (runs on localhost); the spending cap lives in memory; price defaults are conservative estimates.
+
+### OWASP Top 10 (2025) review
+
+| # | Risk | Status | How |
+|---|---|---|---|
+| A01 | Broken Access Control | N/A (by design) | No user accounts or per-user data: every visitor gets the same public checker. Session ids are random, only used for the spend cap, and hashed in logs. |
+| A02 | Security Misconfiguration | Implemented | helmet with a strict CSP (`default-src 'self'`), nosniff, no `x-powered-by`; server binds to `127.0.0.1`; errors never return stack traces. |
+| A03 | Software Supply Chain Failures | Implemented | 5 well-known direct dependencies, lockfile committed, `npm audit --omit=dev`: 0 vulnerabilities. Frontend loads no CDN or third-party scripts. |
+| A04 | Cryptographic Failures | Partial | Outbound calls (LLM, Tavily) are HTTPS only. The local demo server itself is HTTP on localhost; production needs TLS (`upgrade-insecure-requests` is ready to re-enable). |
+| A05 | Injection | Implemented | No SQL / shell / eval. All input validated with zod (strict schema, size limits); untrusted text is never interpreted as code; the DOM is built with `textContent` only (no XSS). |
+| A06 | Insecure Design | Implemented | Threat-driven design: untrusted data separated from instructions, fail-safe verdicts (invalid → UNVERIFIABLE), mock mode never invents verdicts, rate limit and spend caps per session and per server. |
+| A07 | Authentication Failures | N/A | No logins or passwords. API keys stay server-side in `.env` and are validated at startup (only `true/false` is printed). |
+| A08 | Software or Data Integrity Failures | Implemented | Model output and search results are schema-validated; the source link must be one of the real search URLs; the cache only stores validated, evidence-backed verdicts and ignores corrupted files. |
+| A09 | Security Logging & Alerting Failures | Partial | Audit log of every verdict (claim with PII masked, sources, tokens, provider fallback warnings, cache hits). No alerting — out of scope for a demo. |
+| A10 | Mishandling of Exceptional Conditions | Implemented | Timeouts, limited retries with backoff, provider fallback; any failure ends as UNVERIFIABLE or a clean JSON error; body-parser errors return 400/413 without details. |
+
+### OWASP Top 10 for LLM Applications (2025) review
+
+| # | Risk | Status | How |
+|---|---|---|---|
+| LLM01 | Prompt Injection | Implemented | Constant system prompts; transcripts and web results go in separate user messages inside `<untrusted_data>` (tags in the data are neutralized); tested with injection payloads (`test/security.test.js`). |
+| LLM02 | Sensitive Information Disclosure | Implemented | Keys never reach the model, the browser or logs; PII (emails, phones, IBANs) is masked in the audit log; raw source text is not sent to the browser. |
+| LLM03 | Supply Chain | Implemented | Hosted Nemotron models from Nebius Token Factory / NVIDIA (no self-downloaded weights); model ids pinned in `.env`; dependencies audited (see A03). |
+| LLM04 | Data and Model Poisoning | Partial | No training or fine-tuning. Poisoned web pages are mitigated by multiple sources, URL allowlisting and "use only these sources" rules, but a false page could still mislead a verdict. |
+| LLM05 | Improper Output Handling | Implemented | Schema-constrained decoding plus zod validation; output is rendered as text only; links must match a real search result. |
+| LLM06 | Excessive Agency | Implemented | The model has no tools: it cannot browse, run code, write files or call APIs. The server decides every action. |
+| LLM07 | System Prompt Leakage | Implemented | System prompts contain no secrets (they are public in this repo), so leaking them exposes nothing. |
+| LLM08 | Vector and Embedding Weaknesses | N/A | No RAG vector store or embeddings are used. |
+| LLM09 | Misinformation | Partial | Verdicts are grounded in cited sources, UNVERIFIABLE is the default when evidence is weak, and the UI says "revisa siempre la fuente". Eval: 12/12 (Nebius), 10/12 (NVIDIA); the model can still be wrong. |
+| LLM10 | Unbounded Consumption | Implemented | Rate limit (20 req/min/IP), input ≤ 5000 chars, max 5 claims per request, `max_tokens` cap, timeouts, and spend caps per session and per server. |
 
 ## Run it
 
@@ -93,15 +128,16 @@ npm install
 cp .env.example .env      # Windows: copy .env.example .env
 # fill in .env (see below)
 npm start                 # http://localhost:3000
-npm test                  # 51 tests (node:test)
+npm test                  # 58 tests (node:test)
 npm run eval              # accuracy on eval/claims.json with the real APIs
 ```
 
 | `.env` variable | Purpose |
 |---|---|
-| `NEBIUS_API_KEY` | key for the OpenAI-compatible LLM API (NVIDIA build.nvidia.com or Nebius Token Factory) |
-| `NEBIUS_BASE_URL` | e.g. `https://integrate.api.nvidia.com/v1` (the app calls `{URL}/chat/completions`) |
-| `NEMOTRON_MODEL` | e.g. `nvidia/nemotron-3.5-super-vl-120b-a12b` |
+| `NEBIUS_API_KEY` | primary LLM key (Nebius Token Factory) |
+| `NEBIUS_BASE_URL` | `https://api.tokenfactory.nebius.com/v1` (the app calls `{URL}/chat/completions`) |
+| `NEMOTRON_MODEL` | `nvidia/Nemotron-3.5-Super-VL` |
+| `NVIDIA_API_KEY` / `NVIDIA_BASE_URL` / `NVIDIA_MODEL` | optional fallback LLM, e.g. `https://integrate.api.nvidia.com/v1` + `nvidia/nemotron-3.5-super-vl-120b-a12b` |
 | `TAVILY_API_KEY` | Tavily search key |
 | `MAX_SESSION_COST_USD` / `MAX_TOTAL_COST_USD` | spending caps (defaults 2 / 10) |
 | `LLM_USD_PER_1M_INPUT_TOKENS`, `..._OUTPUT_TOKENS`, `TAVILY_USD_PER_SEARCH` | prices used for the caps (conservative defaults 1 / 3 / 0.01) |

@@ -2,13 +2,31 @@
 import { postJson, HttpError } from './http.js';
 
 // Returns null in mock mode so callers fall back to labeled mock data.
-// chat(messages, { jsonSchema }) asks the API for schema-constrained JSON. If the provider
-// rejects that option (HTTP 400/422), it retries once without it and stops sending it.
+// chat(messages, { jsonSchema }) -> { content, usage, provider }.
+// With config.llmFallback set, any failure of the primary provider (timeout, 429, 5xx, network)
+// is retried once on the fallback provider.
 export function createLlmClient(config, { postJsonImpl = postJson } = {}) {
   if (config.llm.mock) return null;
-  const { apiKey, baseUrl, model } = config.llm;
   const timeoutMs = config.limits.llmTimeoutMs ?? config.limits.timeoutMs;
-  const maxRetries = config.limits.llmMaxRetries ?? config.limits.maxRetries;
+  const retries = config.limits.llmMaxRetries ?? config.limits.maxRetries;
+  const fallbackCfg = config.llmFallback ?? null;
+  // With a fallback available, fail over quickly instead of retrying the primary.
+  const primary = createProviderChat(config.llm, { timeoutMs, maxRetries: fallbackCfg ? 0 : retries, postJsonImpl });
+  if (!fallbackCfg) return primary;
+  const fallback = createProviderChat(fallbackCfg, { timeoutMs, maxRetries: retries, postJsonImpl });
+  return async function chatWithFallback(messages, opts) {
+    try {
+      return await primary(messages, opts);
+    } catch (err) {
+      console.warn(`[llm] ${config.llm.name ?? 'primary'} failed (${err.status ?? err.name ?? 'error'}); using ${fallbackCfg.name ?? 'fallback'}`);
+      return fallback(messages, opts);
+    }
+  };
+}
+
+// One OpenAI-compatible provider. Asks for schema-constrained JSON when a schema is given;
+// if the provider rejects that option (HTTP 400/422), it retries without it and stops sending it.
+function createProviderChat({ apiKey, baseUrl, model, name }, { timeoutMs, maxRetries, postJsonImpl }) {
   let structuredSupported = true;
   const send = (body) =>
     postJsonImpl(`${baseUrl}/chat/completions`, {
@@ -37,6 +55,7 @@ export function createLlmClient(config, { postJsonImpl = postJson } = {}) {
         input: Number(data?.usage?.prompt_tokens) || 0,
         output: Number(data?.usage?.completion_tokens) || 0,
       },
+      provider: name ?? null,
     };
   };
 }

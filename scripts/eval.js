@@ -24,9 +24,13 @@ for (const c of cases) {
     console.error(`search failed: ${err.message}`);
   }
   const { result } = await judgeClaim({ claim: c.claim, type: 'news', language: c.language }, sources, { mode: c.mode, llm });
-  rows.push({ claim: c.claim.slice(0, 60), mode: c.mode, expected: c.expected, got: result.verdict, ok: result.verdict === c.expected ? '✔' : '✘' });
+  rows.push({ claim: c.claim.slice(0, 60), mode: c.mode, expected: c.expected, got: result.verdict, provider: result.provider ?? '-', ok: result.verdict === c.expected ? '✔' : '✘' });
 }
 
 console.table(rows);
 const hits = rows.filter((r) => r.ok === '✔').length;
 console.log(`Accuracy: ${hits}/${rows.length} (${Math.round((hits / rows.length) * 100)} %)`);
+for (const p of [...new Set(rows.map((r) => r.provider))]) {
+  const sub = rows.filter((r) => r.provider === p);
+  console.log(`  ${p}: ${sub.filter((r) => r.ok === '✔').length}/${sub.length}`);
+}

@@ -11,7 +11,13 @@ const config = loadConfig();
 
 console.log('Say vs. Do - environment check (set = true/false, values never printed):');
 console.log(envReport());
-console.log(`LLM step:    ${config.llm.mock ? 'MOCK (missing NEBIUS_* or NEMOTRON_MODEL)' : 'live (Nebius)'}`);
+console.log(
+  `LLM step:    ${
+    config.llm.mock
+      ? 'MOCK (missing NEBIUS_* / NEMOTRON_MODEL)'
+      : `live (${config.llm.name}, ${config.llm.model})${config.llmFallback ? ` + fallback ${config.llmFallback.name}` : ''}`
+  }`,
+);
 console.log(`Search step: ${config.search.mock ? 'MOCK (missing TAVILY_API_KEY)' : 'live (Tavily)'}`);
 
 const cache = config.cache.enabled ? createCache() : null;

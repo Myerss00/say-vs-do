@@ -153,6 +153,7 @@ function renderCard(r, isMock) {
   } else {
     card.append(el('p', 'source muted', 'Sin fuente suficiente'));
   }
+  if (r.provider) card.append(el('p', 'provider', `Nemotron · ${r.provider}`));
   return card;
 }
 
