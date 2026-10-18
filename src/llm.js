@@ -7,7 +7,8 @@ import { postJson, HttpError } from './http.js';
 export function createLlmClient(config, { postJsonImpl = postJson } = {}) {
   if (config.llm.mock) return null;
   const { apiKey, baseUrl, model } = config.llm;
-  const { timeoutMs, maxRetries } = config.limits;
+  const timeoutMs = config.limits.llmTimeoutMs ?? config.limits.timeoutMs;
+  const maxRetries = config.limits.llmMaxRetries ?? config.limits.maxRetries;
   let structuredSupported = true;
   const send = (body) =>
     postJsonImpl(`${baseUrl}/chat/completions`, {

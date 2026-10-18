@@ -41,8 +41,11 @@ export function loadConfig() {
     limits: {
       maxSessionCostUsd: num('MAX_SESSION_COST_USD', 2),
       maxTotalCostUsd: num('MAX_TOTAL_COST_USD', 10),
-      timeoutMs: 15_000,
+      timeoutMs: 15_000, // search
       maxRetries: 2,
+      // Reasoning models can think for 20+ s on a hard claim: give them longer, retry once.
+      llmTimeoutMs: 45_000,
+      llmMaxRetries: 1,
       maxClaimsPerRequest: 5,
     },
     // Conservative cost ESTIMATES for the spending cap. B replaces them with real prices.
