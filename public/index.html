@@ -28,6 +28,26 @@
       </header>
 
       <main>
+        <section class="score" aria-label="Marcador Dice vs. Hace">
+          <div class="score-head">
+            <h2 class="score-title">Dice <span class="vs">vs.</span> Hace</h2>
+            <span id="scoreTotal" class="muted small tabular">0 afirmaciones en esta sesión</span>
+          </div>
+          <div class="score-grid">
+            <div class="tile v-supported"><span class="tile-num tabular" data-score="SUPPORTED">0</span><span class="tile-label">Respaldadas</span></div>
+            <div class="tile v-misleading"><span class="tile-num tabular" data-score="MISLEADING">0</span><span class="tile-label">Engañosas</span></div>
+            <div class="tile v-false"><span class="tile-num tabular" data-score="FALSE">0</span><span class="tile-label">Falsas</span></div>
+            <div class="tile v-unverifiable"><span class="tile-num tabular" data-score="UNVERIFIABLE">0</span><span class="tile-label">No verificables</span></div>
+          </div>
+          <div class="score-bar" aria-hidden="true">
+            <span class="seg v-supported" data-bar="SUPPORTED"></span>
+            <span class="seg v-misleading" data-bar="MISLEADING"></span>
+            <span class="seg v-false" data-bar="FALSE"></span>
+            <span class="seg v-unverifiable" data-bar="UNVERIFIABLE"></span>
+          </div>
+          <p id="scoreDemo" class="muted small" hidden></p>
+        </section>
+
         <section class="composer" aria-label="Entrada">
           <label for="transcript" class="sr-only">Pegar transcripción</label>
           <textarea id="transcript" rows="5" maxlength="5000"

@@ -1,4 +1,5 @@
 // Say vs. Do frontend. No framework; all text is inserted with textContent (no innerHTML).
+import { SCORE_KEYS, emptyScore, addResults, scoreShares } from './score.js';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -145,7 +146,32 @@ function renderCard(r, isMock) {
   return card;
 }
 
+// ---- "Dice vs. Hace" score panel (counts verdicts of this tab's session) ----
+let score = emptyScore();
+function renderScore(prev) {
+  const shares = scoreShares(score);
+  for (const k of SCORE_KEYS) {
+    const num = document.querySelector(`[data-score="${k}"]`);
+    num.textContent = String(score[k]);
+    if (prev && prev[k] !== score[k]) {
+      num.classList.remove('bump');
+      void num.offsetWidth; // restart the animation
+      num.classList.add('bump');
+    }
+    // Exact ratio (not the rounded share) so the segments always fill the bar.
+    document.querySelector(`[data-bar="${k}"]`).style.width = score.total ? `${(score[k] / score.total) * 100}%` : '0';
+    document.querySelector(`[data-bar="${k}"]`).title = `${shares[k]} %`;
+  }
+  $('scoreTotal').textContent = `${score.total} ${score.total === 1 ? 'afirmación' : 'afirmaciones'} en esta sesión`;
+  const demo = $('scoreDemo');
+  demo.hidden = score.demo === 0;
+  demo.textContent = `${score.demo} en modo DEMO (sin veredicto real, no cuentan).`;
+}
+
 function renderResults(data) {
+  const prev = score;
+  score = addResults(score, data.results);
+  renderScore(prev);
   const isMock = data.mock?.llm || data.mock?.search;
   setStatus(data.results.length ? '' : 'No se detectaron afirmaciones comprobables en ese texto.');
   // Newest first

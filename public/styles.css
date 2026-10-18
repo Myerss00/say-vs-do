@@ -210,6 +210,70 @@ textarea {
   color: var(--amber);
 }
 
+/* ---------- Dice vs. Hace score ---------- */
+.score {
+  margin-bottom: 24px;
+}
+.score-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.score-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.score-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.tile {
+  --accent: var(--grey);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.tile-num {
+  font-size: clamp(1.8rem, 5vw, 2.4rem);
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--accent);
+}
+.tile-num.bump {
+  animation: bump 0.4s ease;
+}
+.tile-label {
+  color: var(--text-2);
+  font-size: 0.85rem;
+}
+.score-bar {
+  display: flex;
+  height: 6px;
+  margin-top: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.score-bar .seg {
+  width: 0;
+  background: var(--accent);
+  transition: width 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.score p {
+  margin: 8px 0 0;
+}
+
 /* ---------- composer ---------- */
 .composer {
   background: var(--surface);
@@ -470,6 +534,11 @@ p.source {
     transform: translateY(12px) scale(0.99);
   }
 }
+@keyframes bump {
+  50% {
+    transform: scale(1.15);
+  }
+}
 @keyframes pulse {
   0% {
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--red) 45%, transparent);
@@ -505,6 +574,9 @@ p.source {
   }
   .card {
     padding: 18px 18px 16px 22px;
+  }
+  .score-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
   .meta {
     margin-left: 0;
