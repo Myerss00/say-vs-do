@@ -2,7 +2,7 @@
 
 **Live fact-checking for what people say — speeches, interviews, ads and corporate "green" claims — with sources, in seconds.**
 
-Built solo by **Brayan Anaya** at **Nebius × NVIDIA Build Week, Berlin (18 Oct 2026)**, together with Claude Code.
+Built solo by **Brayan Anaya** at **Nebius × NVIDIA Build Week, Berlin (18 Oct 2026)**.
 
 ![Say vs. Do: live verdict cards with sources and the session score panel](docs/screenshot.png)
 
