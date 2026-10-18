@@ -25,6 +25,7 @@ export function createAuditLog(dir = path.resolve('logs')) {
       source_urls: entry.source_urls,
       tokens: entry.tokens,
       mock: entry.mock,
+      cached: entry.cached === true,
     });
     const file = path.join(dir, `audit-${new Date().toISOString().slice(0, 10)}.jsonl`);
     ready = ready

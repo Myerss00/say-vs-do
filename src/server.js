@@ -9,7 +9,7 @@ import { checkText } from './pipeline.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 
-export function createApp({ config, llm, search, budget, audit, rateLimitPerMin = 20 }) {
+export function createApp({ config, llm, search, budget, audit, cache = null, rateLimitPerMin = 20 }) {
   const app = express();
   app.disable('x-powered-by');
   app.use(
@@ -61,6 +61,7 @@ export function createApp({ config, llm, search, budget, audit, rateLimitPerMin 
         search,
         budget,
         audit,
+        cache,
         pricing: config.pricing,
         sessionId,
         maxClaims: config.limits.maxClaimsPerRequest,

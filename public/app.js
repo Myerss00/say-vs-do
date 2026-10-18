@@ -127,6 +127,11 @@ function renderCard(r, isMock) {
   if (isMock) meta.append(el('span', 'pill pill-mock', 'MOCK'));
   meta.append(el('span', 'chip', r.type));
   if (typeof r.confidence === 'number') meta.append(el('span', 'chip', `${Math.round(r.confidence * 100)} %`));
+  if (r.cached) {
+    const chip = el('span', 'chip chip-cached', 'caché');
+    chip.title = `Veredicto real guardado${r.cached_at ? ` el ${new Date(r.cached_at).toLocaleString('es-ES')}` : ''}`;
+    meta.append(chip);
+  }
   if (Number.isFinite(r.latency_ms)) {
     const chip = el('span', 'chip', `${formatMs(r.latency_ms)}`);
     chip.title = 'Tiempo de búsqueda + veredicto de esta afirmación';

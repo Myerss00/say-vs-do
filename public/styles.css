@@ -501,6 +501,10 @@ textarea::placeholder {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+.chip-cached {
+  color: var(--focus);
+  border-color: color-mix(in srgb, var(--focus) 35%, var(--line));
+}
 .claim {
   margin: 0 0 8px;
   font-size: clamp(1.15rem, 2.6vw, 1.35rem);

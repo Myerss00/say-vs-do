@@ -75,19 +75,36 @@ export async function judgeClaim(claim, sources, { mode = 'news', llm = null } =
     // The link shown to users must be one of the real search results, never a model invention.
     const allowed = new Set(sources.map((s) => s.url));
     result.source_url = allowed.has(result.source_url) ? result.source_url : null;
-    return { result, usage: reply.usage };
+    return { result, usage: reply.usage, valid: true }; // valid = real model verdict, safe to cache
   } catch {
     return { result: unverifiable(claim), usage: reply?.usage ?? NO_USAGE };
   }
 }
 
-// Whole flow for one request. ctx = { llm, search, budget, audit, pricing, sessionId, maxClaims }
+const CACHED_FIELDS = ['claim', 'type', 'language', 'verdict', 'confidence', 'explanation', 'source_url', 'sources'];
+const pick = (obj, keys) => Object.fromEntries(keys.filter((k) => k in obj).map((k) => [k, obj[k]]));
+
+// Whole flow for one request.
+// ctx = { llm, search, budget, audit, pricing, sessionId, maxClaims, cache? }
+// The demo cache is only used when BOTH steps are live: mock mode never reads or writes it,
+// so it can only ever show DEMO cards, and only real live verdicts are ever stored.
 export async function checkText({ text, mode, lang }, ctx) {
   const { llm, search, budget, audit, pricing, sessionId, maxClaims = 5 } = ctx;
+  const cache = llm && search ? ctx.cache ?? null : null;
   const llmCost = (u) => (u.input * pricing.llmInPer1M + u.output * pricing.llmOutPer1M) / 1e6;
 
   const started = performance.now();
   const ms = (since) => Math.round(performance.now() - since);
+
+  // Same pasted text seen before -> answer without any network call (works offline).
+  const textHit = cache?.getText(mode, text);
+  if (textHit && Array.isArray(textHit.value.results)) {
+    const results = textHit.value.results.map((r) => ({ ...r, cached: true, cached_at: textHit.cachedAt, latency_ms: 0 }));
+    for (const r of results) {
+      audit({ sessionId, mode, claim: r.claim, verdict: r.verdict, source_urls: r.sources.map((s) => s.url), tokens: NO_USAGE, mock: { llm: false, search: false }, cached: true });
+    }
+    return { results, sessionCostUsd: budget.spent(sessionId), timing: { extract_ms: 0, total_ms: ms(started) } };
+  }
 
   const extracted = await extractClaims(text, { mode, lang, llm, maxClaims });
   budget.add(sessionId, llmCost(extracted.usage));
@@ -104,11 +121,19 @@ export async function checkText({ text, mode, lang }, ctx) {
           latency_ms: ms(claimStart),
         };
       }
+      const claimHit = cache?.getClaim(mode, claim.claim);
+      if (claimHit) {
+        const r = claimHit.value;
+        audit({ sessionId, mode, claim: claim.claim, verdict: r.verdict, source_urls: r.sources.map((s) => s.url), tokens: NO_USAGE, mock: { llm: false, search: false }, cached: true });
+        return { ...claim, ...r, cached: true, cached_at: claimHit.cachedAt, latency_ms: ms(claimStart) };
+      }
       let sources = [];
+      let searchOk = true;
       try {
         sources = await searchEvidence(claim.claim, { search });
         if (search) budget.add(sessionId, pricing.tavilyPerSearch);
       } catch {
+        searchOk = false;
         sources = []; // search failure -> judge sees no evidence -> UNVERIFIABLE
       }
       const judged = await judgeClaim(claim, sources, { mode, llm });
@@ -122,14 +147,21 @@ export async function checkText({ text, mode, lang }, ctx) {
         tokens: judged.usage,
         mock: { llm: !llm, search: !search },
       });
-      return {
+      const result = {
         ...claim,
         ...judged.result,
         sources: sources.map(({ title, url }) => ({ title, url })),
-        latency_ms: ms(claimStart), // evidence search + verdict for this claim
       };
+      // Cache only real verdicts backed by evidence, never fallbacks caused by failures.
+      const cacheable = Boolean(cache && judged.valid && searchOk && sources.length > 0);
+      if (cacheable) cache.setClaim(mode, claim.claim, pick(result, CACHED_FIELDS));
+      return { ...result, cacheable, latency_ms: ms(claimStart) }; // latency = search + verdict
     }),
   );
+  if (cache && results.length > 0 && results.every((r) => r.cacheable || r.cached)) {
+    cache.setText(mode, text, { results: results.map((r) => pick(r, CACHED_FIELDS)) });
+  }
+  for (const r of results) delete r.cacheable;
   return {
     results,
     sessionCostUsd: budget.spent(sessionId),

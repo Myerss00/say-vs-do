@@ -17,6 +17,7 @@ export const OPTIONAL_VARS = [
   'LLM_USD_PER_1M_INPUT_TOKENS',
   'LLM_USD_PER_1M_OUTPUT_TOKENS',
   'TAVILY_USD_PER_SEARCH',
+  'DEMO_CACHE',
   'PORT',
 ];
 
@@ -25,6 +26,8 @@ export function loadConfig() {
   const searchReady = has('TAVILY_API_KEY');
   return {
     port: num('PORT', 3000),
+    // Demo cache of real verdicts in cache/claims.json. DEMO_CACHE=off disables it.
+    cache: { enabled: (process.env.DEMO_CACHE || '').trim().toLowerCase() !== 'off' },
     llm: {
       mock: !llmReady,
       apiKey: process.env.NEBIUS_API_KEY,

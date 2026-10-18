@@ -36,6 +36,16 @@ Al arrancar, el servidor imprime qué variables están definidas (`true`/`false`
 | `MAX_SESSION_COST_USD` | Límite de gasto por sesión del navegador (por defecto 2) |
 | `MAX_TOTAL_COST_USD` | Límite de gasto global del servidor (por defecto 10) |
 | `LLM_USD_PER_1M_INPUT_TOKENS` / `..._OUTPUT_TOKENS` / `TAVILY_USD_PER_SEARCH` | Precios para calcular el gasto. Por defecto estimaciones conservadoras (1 / 3 / 0,01 USD); pon los reales. |
+| `DEMO_CACHE` | `off` desactiva la caché de demo (por defecto activada). |
+
+## Caché de demo
+
+Los veredictos **reales** se guardan en `cache/claims.json` (en `.gitignore`), con clave = hash SHA-256 de modo + texto normalizado (minúsculas, sin acentos, comillas ni puntuación). Hay dos niveles:
+
+- **Texto completo**: si se vuelve a pegar el mismo texto, la respuesta sale al instante **sin ninguna llamada de red** (sirve si la red falla en la demo).
+- **Afirmación**: si una afirmación ya conocida aparece en otro texto, se salta la búsqueda y el veredicto.
+
+Reglas: solo se usa cuando Nebius **y** Tavily están en vivo (en modo MOCK nunca se lee ni se escribe, así que MOCK sigue sin veredictos falsos); solo se guardan veredictos con salida del modelo válida y al menos una fuente (nunca los UNVERIFIABLE por fallo); caducan a los 7 días; máximo 500 entradas; escritura atómica. Las tarjetas desde caché llevan la etiqueta **caché**. Para empezar de cero, borra la carpeta `cache/`.
 
 ## Modo MOCK
 
@@ -55,7 +65,9 @@ Sin claves no llama a nada: imprime «Faltan claves: rellena .env» y termina. C
 
 1. Elige **Noticias** o **Empresas**. Empresas añade al juez las reglas de *green claims* de la Directiva (UE) 2024/825 (afirmaciones ambientales genéricas, compensación de CO₂, afirmaciones futuras sin plan verificable, etiquetas sin certificación…).
 2. Pega una transcripción y pulsa **Comprobar**, o
-3. Elige idioma (de-DE / en-US / es-ES) y pulsa **🎙️ En directo**: cada frase final se envía a `/api/check`.
+3. Elige idioma (DE / EN / ES) y pulsa **En directo**: cada frase final se envía a `/api/check`.
+
+Cada texto enviado aparece primero como tarjeta «En cola» → «Comprobando…» con un contador en ms, y se convierte en sus tarjetas de resultado. Cada tarjeta muestra su latencia (búsqueda + veredicto). El marcador **Dice vs. Hace** de arriba cuenta los veredictos de la sesión (las tarjetas DEMO se cuentan aparte). Botón de tema claro/oscuro arriba a la derecha.
 
 Nota de privacidad: en Chrome, la Web Speech API envía el audio a los servidores de Google para transcribirlo. No uses datos personales reales en la demo.
 
@@ -63,7 +75,7 @@ Nota de privacidad: en Chrome, la Web Speech API envía el audio a los servidore
 
 - `GET /api/status` → `{ mock: { llm, search }, maxTextLength, maxSessionCostUsd }`
 - `POST /api/check` con cabecera `X-Session-Id` y cuerpo `{ "text": "...", "mode": "news" | "corporate", "lang": "de-DE" | "en-US" | "es-ES" }`
-  → `{ mock, results: [{ claim, type, language, verdict, confidence, explanation, source_url, sources: [{title, url}] }], session_cost_usd, max_session_cost_usd }`
+  → `{ mock, results: [{ claim, type, language, verdict, confidence, explanation, source_url, sources: [{title, url}], latency_ms, cached?, cached_at? }], timing: { extract_ms, total_ms }, session_cost_usd, max_session_cost_usd }`
 
 ## Seguridad (resumen)
 
@@ -79,7 +91,8 @@ Nota de privacidad: en Chrome, la Web Speech API envía el audio a los servidore
 | Log de auditoría `logs/audit-AAAA-MM-DD.jsonl`: afirmación (PII enmascarada), URLs, tokens, veredicto; sesión como hash; sin claves | `src/audit.js` |
 | helmet (CSP `default-src 'self'`, nosniff…), sin `x-powered-by`, errores sin stack trace | `src/server.js` |
 | Frontend sin `innerHTML`: todo con `textContent` (sin XSS desde el modelo o las fuentes) | `public/app.js` |
-| Solo dos hosts externos: `NEBIUS_BASE_URL` y `api.tavily.com`. El agente no ejecuta código ni toca el sistema de archivos | `src/llm.js`, `src/pipeline.js` |
+| Solo dos hosts externos: `NEBIUS_BASE_URL` y `api.tavily.com`. El agente no ejecuta código ni toca el sistema de archivos (el servidor solo escribe `logs/` y `cache/`, rutas fijas) | `src/llm.js`, `src/pipeline.js` |
+| Caché de demo: solo veredictos reales validados, nunca en modo MOCK; claves hash; fichero corrupto se ignora | `src/cache.js`, `src/pipeline.js` |
 
 ### Limitaciones conocidas (pendiente)
 
