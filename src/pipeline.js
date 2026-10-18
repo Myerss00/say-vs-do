@@ -86,13 +86,23 @@ export async function checkText({ text, mode, lang }, ctx) {
   const { llm, search, budget, audit, pricing, sessionId, maxClaims = 5 } = ctx;
   const llmCost = (u) => (u.input * pricing.llmInPer1M + u.output * pricing.llmOutPer1M) / 1e6;
 
+  const started = performance.now();
+  const ms = (since) => Math.round(performance.now() - since);
+
   const extracted = await extractClaims(text, { mode, lang, llm, maxClaims });
   budget.add(sessionId, llmCost(extracted.usage));
+  const extractMs = ms(started);
 
   const results = await Promise.all(
     extracted.claims.map(async (claim) => {
+      const claimStart = performance.now();
       if (!budget.canSpend(sessionId)) {
-        return { ...claim, ...unverifiable(claim, 'Session budget reached / límite de gasto alcanzado.'), sources: [] };
+        return {
+          ...claim,
+          ...unverifiable(claim, 'Session budget reached / límite de gasto alcanzado.'),
+          sources: [],
+          latency_ms: ms(claimStart),
+        };
       }
       let sources = [];
       try {
@@ -112,8 +122,17 @@ export async function checkText({ text, mode, lang }, ctx) {
         tokens: judged.usage,
         mock: { llm: !llm, search: !search },
       });
-      return { ...claim, ...judged.result, sources: sources.map(({ title, url }) => ({ title, url })) };
+      return {
+        ...claim,
+        ...judged.result,
+        sources: sources.map(({ title, url }) => ({ title, url })),
+        latency_ms: ms(claimStart), // evidence search + verdict for this claim
+      };
     }),
   );
-  return { results, sessionCostUsd: budget.spent(sessionId) };
+  return {
+    results,
+    sessionCostUsd: budget.spent(sessionId),
+    timing: { extract_ms: extractMs, total_ms: ms(started) },
+  };
 }

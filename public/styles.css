@@ -434,6 +434,23 @@ textarea::placeholder {
 .v-demo {
   border-style: dashed;
 }
+.card-pending {
+  border-style: dashed;
+  box-shadow: none;
+}
+.card-pending .claim {
+  color: var(--text-2);
+  font-weight: 500;
+}
+.card-pending.running::before {
+  background: linear-gradient(180deg, transparent, var(--focus), transparent);
+  background-size: 100% 200%;
+  animation: scan 1.2s linear infinite;
+}
+.card-pending.running .verdict {
+  color: var(--focus);
+  background: color-mix(in srgb, var(--focus) 10%, transparent);
+}
 
 .card-head {
   display: flex;
@@ -532,6 +549,14 @@ p.source {
   from {
     opacity: 0;
     transform: translateY(12px) scale(0.99);
+  }
+}
+@keyframes scan {
+  from {
+    background-position: 0 100%;
+  }
+  to {
+    background-position: 0 -100%;
   }
 }
 @keyframes bump {

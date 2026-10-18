@@ -127,6 +127,11 @@ function renderCard(r, isMock) {
   if (isMock) meta.append(el('span', 'pill pill-mock', 'MOCK'));
   meta.append(el('span', 'chip', r.type));
   if (typeof r.confidence === 'number') meta.append(el('span', 'chip', `${Math.round(r.confidence * 100)} %`));
+  if (Number.isFinite(r.latency_ms)) {
+    const chip = el('span', 'chip', `${formatMs(r.latency_ms)}`);
+    chip.title = 'Tiempo de búsqueda + veredicto de esta afirmación';
+    meta.append(chip);
+  }
   head.append(meta);
   card.append(head);
 
@@ -168,15 +173,53 @@ function renderScore(prev) {
   demo.textContent = `${score.demo} en modo DEMO (sin veredicto real, no cuentan).`;
 }
 
-function renderResults(data) {
+const formatMs = (ms) => `${Math.round(ms).toLocaleString('es-ES')} ms`;
+
+// Placeholder shown while a text waits in the queue / is being checked, with a live timer.
+function createPendingCard(text) {
+  const card = el('article', 'card card-pending');
+  const head = el('div', 'card-head');
+  const state = el('span', 'verdict', 'En cola');
+  const timer = el('span', 'chip', '');
+  const meta = el('div', 'meta');
+  meta.append(timer);
+  head.append(state, meta);
+  card.append(head, el('p', 'claim', `«${text.length > 160 ? text.slice(0, 160) + '…' : text}»`));
+  els.results.prepend(card);
+  let t0 = 0;
+  let tick = null;
+  return {
+    start() {
+      t0 = performance.now();
+      state.textContent = 'Comprobando…';
+      card.classList.add('running');
+      tick = setInterval(() => (timer.textContent = formatMs(performance.now() - t0)), 100);
+    },
+    finish() {
+      clearInterval(tick);
+      return t0 ? performance.now() - t0 : 0;
+    },
+    replaceWith(nodes) {
+      card.replaceWith(...nodes);
+    },
+  };
+}
+
+function renderResults(data, pending, clientMs) {
   const prev = score;
   score = addResults(score, data.results);
   renderScore(prev);
   const isMock = data.mock?.llm || data.mock?.search;
-  setStatus(data.results.length ? '' : 'No se detectaron afirmaciones comprobables en ese texto.');
-  // Newest first
-  for (const r of [...data.results].reverse()) els.results.prepend(renderCard(r, isMock));
-  if (data.results.length) els.results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const n = data.results.length;
+  setStatus(
+    n
+      ? `${n} ${n === 1 ? 'afirmación comprobada' : 'afirmaciones comprobadas'} en ${formatMs(clientMs)}` +
+          (data.timing ? ` (extracción ${formatMs(data.timing.extract_ms)})` : '')
+      : 'No se detectaron afirmaciones comprobables en ese texto.',
+  );
+  // The pending card turns into the result cards, in the same place (newest first).
+  pending.replaceWith(data.results.map((r) => renderCard(r, isMock)));
+  if (n) els.results.scrollIntoView({ behavior: 'smooth', block: 'start' });
   if (typeof data.session_cost_usd === 'number') {
     els.cost.textContent = `Coste de la sesión: $${data.session_cost_usd.toFixed(4)} / $${data.max_session_cost_usd}`;
   }
@@ -185,11 +228,15 @@ function renderResults(data) {
 // Serial queue so live sentences don't flood the API (rate limit is 20/min).
 let queue = Promise.resolve();
 function enqueueCheck(text) {
+  const pending = createPendingCard(text);
   queue = queue.then(async () => {
-    setStatus('Comprobando…');
+    pending.start();
     try {
-      renderResults(await check(text));
+      const data = await check(text);
+      renderResults(data, pending, pending.finish());
     } catch (err) {
+      pending.finish();
+      pending.replaceWith([]);
       setStatus(err.message, true);
     }
   });

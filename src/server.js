@@ -68,6 +68,7 @@ export function createApp({ config, llm, search, budget, audit, rateLimitPerMin 
       res.json({
         mock,
         results: out.results,
+        timing: out.timing,
         session_cost_usd: Number(out.sessionCostUsd.toFixed(4)),
         max_session_cost_usd: config.limits.maxSessionCostUsd,
       });
