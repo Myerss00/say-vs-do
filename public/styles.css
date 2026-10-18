@@ -99,6 +99,9 @@ textarea {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
+[hidden] {
+  display: none !important; /* components set display; hidden must still win */
+}
 .sr-only {
   position: absolute;
   width: 1px;
