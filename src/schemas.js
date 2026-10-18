@@ -31,6 +31,40 @@ export const VerdictSchema = z.object({
   source_url: z.string().url().nullable().optional(),
 });
 
+// ---- JSON Schemas sent to the model API for constrained ("structured") output ----
+// Reasoning models sometimes emit broken JSON; constrained decoding prevents that.
+// The zod schemas above still validate every reply.
+export const EXTRACT_JSON_SCHEMA = {
+  type: 'object',
+  properties: {
+    claims: {
+      type: 'array',
+      maxItems: 5,
+      items: {
+        type: 'object',
+        properties: {
+          claim: { type: 'string', maxLength: 500 },
+          type: { type: 'string', enum: CLAIM_TYPES },
+          language: { type: 'string', maxLength: 10 },
+        },
+        required: ['claim', 'type', 'language'],
+      },
+    },
+  },
+  required: ['claims'],
+};
+
+export const JUDGE_JSON_SCHEMA = {
+  type: 'object',
+  properties: {
+    verdict: { type: 'string', enum: VERDICTS },
+    confidence: { type: 'number', minimum: 0, maximum: 1 },
+    explanation: { type: 'string', maxLength: 400 },
+    source_url: { type: ['string', 'null'] },
+  },
+  required: ['verdict', 'confidence', 'explanation', 'source_url'],
+};
+
 // ---- Search results (untrusted, but we still bound their shape) ----
 export const SourceSchema = z.object({
   title: z.string().max(300).catch(''),

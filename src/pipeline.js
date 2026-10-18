@@ -3,7 +3,7 @@
 import { postJson } from './http.js';
 import { parseLlmJson } from './llm.js';
 import { buildExtractMessages, buildJudgeMessages } from './prompts.js';
-import { ClaimListSchema, SourceSchema, VerdictSchema } from './schemas.js';
+import { ClaimListSchema, SourceSchema, VerdictSchema, EXTRACT_JSON_SCHEMA, JUDGE_JSON_SCHEMA } from './schemas.js';
 import { mockExtract, mockJudge, mockSearch } from './mock.js';
 
 const TAVILY_URL = 'https://api.tavily.com/search';
@@ -13,9 +13,10 @@ export function createSearchClient(config) {
   if (config.search.mock) return null;
   const { timeoutMs, maxRetries } = config.limits;
   return async function search(query) {
+    // Key in the body: Tavily dev keys get HTTP 429 with "Authorization: Bearer" but work this way.
+    // Sent over HTTPS only and never logged (http.js does not log request bodies).
     const data = await postJson(TAVILY_URL, {
-      headers: { Authorization: `Bearer ${config.search.apiKey}` },
-      body: { query: query.slice(0, 400), max_results: 5, search_depth: 'basic' },
+      body: { api_key: config.search.apiKey, query: query.slice(0, 400), max_results: 5, search_depth: 'basic' },
       timeoutMs,
       maxRetries,
     });
@@ -26,7 +27,7 @@ export function createSearchClient(config) {
 // (1) text -> [{claim, type, language}]
 export async function extractClaims(text, { mode = 'news', lang, llm = null, maxClaims = 5 } = {}) {
   if (!llm) return { claims: mockExtract(text, { mode, lang }).slice(0, maxClaims), usage: NO_USAGE };
-  const reply = await llm(buildExtractMessages(text));
+  const reply = await llm(buildExtractMessages(text), { jsonSchema: EXTRACT_JSON_SCHEMA });
   let claims = [];
   try {
     const raw = parseLlmJson(reply.content);
@@ -68,7 +69,7 @@ export async function judgeClaim(claim, sources, { mode = 'news', llm = null } =
   if (!llm) return { result: mockJudge(claim, sources), usage: NO_USAGE };
   let reply;
   try {
-    reply = await llm(buildJudgeMessages(claim.claim, sources, mode));
+    reply = await llm(buildJudgeMessages(claim.claim, sources, mode), { jsonSchema: JUDGE_JSON_SCHEMA });
     const parsed = VerdictSchema.safeParse(parseLlmJson(reply.content));
     if (!parsed.success) return { result: unverifiable(claim), usage: reply.usage };
     const result = parsed.data;

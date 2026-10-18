@@ -1,18 +1,35 @@
-// OpenAI-compatible chat client for Nebius Token Factory. Base URL and model come ONLY from .env.
-import { postJson } from './http.js';
+// OpenAI-compatible chat client (Nebius Token Factory / NVIDIA API). Base URL and model come ONLY from .env.
+import { postJson, HttpError } from './http.js';
 
 // Returns null in mock mode so callers fall back to labeled mock data.
-export function createLlmClient(config) {
+// chat(messages, { jsonSchema }) asks the API for schema-constrained JSON. If the provider
+// rejects that option (HTTP 400/422), it retries once without it and stops sending it.
+export function createLlmClient(config, { postJsonImpl = postJson } = {}) {
   if (config.llm.mock) return null;
   const { apiKey, baseUrl, model } = config.llm;
   const { timeoutMs, maxRetries } = config.limits;
-  return async function chat(messages) {
-    const data = await postJson(`${baseUrl}/chat/completions`, {
+  let structuredSupported = true;
+  const send = (body) =>
+    postJsonImpl(`${baseUrl}/chat/completions`, {
       headers: { Authorization: `Bearer ${apiKey}` },
-      body: { model, messages, temperature: 0, max_tokens: 800 },
+      body,
       timeoutMs,
       maxRetries,
     });
+  return async function chat(messages, { jsonSchema } = {}) {
+    // Reasoning models spend tokens thinking before the answer: leave room for both.
+    const body = { model, messages, temperature: 0, max_tokens: 2000 };
+    let data;
+    if (jsonSchema && structuredSupported) {
+      try {
+        data = await send({ ...body, response_format: { type: 'json_schema', json_schema: { name: 'reply', schema: jsonSchema } } });
+      } catch (err) {
+        if (!(err instanceof HttpError && (err.status === 400 || err.status === 422))) throw err;
+        structuredSupported = false;
+        console.warn('[llm] structured output not accepted by the provider; using plain JSON prompts');
+      }
+    }
+    data ??= await send(body);
     return {
       content: data?.choices?.[0]?.message?.content ?? '',
       usage: {
