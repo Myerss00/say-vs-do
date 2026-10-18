@@ -35,9 +35,10 @@ function createProviderChat({ apiKey, baseUrl, model, name }, { timeoutMs, maxRe
       timeoutMs,
       maxRetries,
     });
-  return async function chat(messages, { jsonSchema } = {}) {
+  return async function chat(messages, { jsonSchema, maxTokens = 2000 } = {}) {
     // Reasoning models spend tokens thinking before the answer: leave room for both.
-    const body = { model, messages, temperature: 0, max_tokens: 2000 };
+    // Long inputs (whole articles) think longer, so callers can raise the bounded cap.
+    const body = { model, messages, temperature: 0, max_tokens: Math.min(maxTokens, 8000) };
     let data;
     if (jsonSchema && structuredSupported) {
       try {

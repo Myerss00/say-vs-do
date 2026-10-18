@@ -5,6 +5,7 @@ import { parseLlmJson } from './llm.js';
 import { buildExtractMessages, buildJudgeMessages } from './prompts.js';
 import { ClaimListSchema, SourceSchema, VerdictSchema, EXTRACT_JSON_SCHEMA, JUDGE_JSON_SCHEMA } from './schemas.js';
 import { mockExtract, mockJudge, mockSearch } from './mock.js';
+import { isArticleUrl, ArticleError } from './article.js';
 
 const TAVILY_URL = 'https://api.tavily.com/search';
 const NO_USAGE = { input: 0, output: 0 };
@@ -27,7 +28,8 @@ export function createSearchClient(config) {
 // (1) text -> [{claim, type, language}]
 export async function extractClaims(text, { mode = 'news', lang, llm = null, maxClaims = 5 } = {}) {
   if (!llm) return { claims: mockExtract(text, { mode, lang }).slice(0, maxClaims), usage: NO_USAGE };
-  const reply = await llm(buildExtractMessages(text), { jsonSchema: EXTRACT_JSON_SCHEMA });
+  // Up to 5000 chars of transcript or a 4000-char article: give the reasoning model room to finish.
+  const reply = await llm(buildExtractMessages(text), { jsonSchema: EXTRACT_JSON_SCHEMA, maxTokens: 4096 });
   let claims = [];
   try {
     const raw = parseLlmJson(reply.content);
@@ -87,9 +89,10 @@ const CACHED_FIELDS = ['claim', 'type', 'language', 'verdict', 'confidence', 'ex
 const pick = (obj, keys) => Object.fromEntries(keys.filter((k) => k in obj).map((k) => [k, obj[k]]));
 
 // Whole flow for one request.
-// ctx = { llm, search, budget, audit, pricing, sessionId, maxClaims, cache? }
+// ctx = { llm, search, budget, audit, pricing, sessionId, maxClaims, cache?, readArticle? }
 // The demo cache is only used when BOTH steps are live: mock mode never reads or writes it,
 // so it can only ever show DEMO cards, and only real live verdicts are ever stored.
+// If `text` is a single news link, ctx.readArticle (Tavily Extract) turns it into article text first.
 export async function checkText({ text, mode, lang }, ctx) {
   const { llm, search, budget, audit, pricing, sessionId, maxClaims = 5 } = ctx;
   const cache = llm && search ? ctx.cache ?? null : null;
@@ -105,10 +108,26 @@ export async function checkText({ text, mode, lang }, ctx) {
     for (const r of results) {
       audit({ sessionId, mode, claim: r.claim, verdict: r.verdict, source_urls: r.sources.map((s) => s.url), tokens: NO_USAGE, mock: { llm: false, search: false }, cached: true });
     }
-    return { results, sessionCostUsd: budget.spent(sessionId), timing: { extract_ms: 0, total_ms: ms(started) } };
+    return {
+      results,
+      article: textHit.value.article ?? null,
+      sessionCostUsd: budget.spent(sessionId),
+      timing: { extract_ms: 0, total_ms: ms(started) },
+    };
   }
 
-  const extracted = await extractClaims(text, { mode, lang, llm, maxClaims });
+  // A pasted news link: read the article (untrusted data) and check its claims.
+  let article = null;
+  let input = text;
+  if (isArticleUrl(text)) {
+    if (!ctx.readArticle) throw new ArticleError('Para leer enlaces hace falta TAVILY_API_KEY (ahora está en modo MOCK).', 400);
+    const page = await ctx.readArticle(text.trim());
+    budget.add(sessionId, pricing.tavilyPerSearch);
+    article = { url: page.url, title: page.title };
+    input = page.text;
+  }
+
+  const extracted = await extractClaims(input, { mode, lang, llm, maxClaims });
   budget.add(sessionId, llmCost(extracted.usage));
   const extractMs = ms(started);
 
@@ -160,12 +179,16 @@ export async function checkText({ text, mode, lang }, ctx) {
       return { ...result, cacheable, latency_ms: ms(claimStart) }; // latency = search + verdict
     }),
   );
-  if (cache && results.length > 0 && results.every((r) => r.cacheable || r.cached)) {
-    cache.setText(mode, text, { results: results.map((r) => pick(r, CACHED_FIELDS)) });
+  const good = results.filter((r) => r.cacheable || r.cached);
+  // Text: cache only when every claim got a real verdict. Article links: cache the real verdicts
+  // even if one claim failed (the failed one is left out of the replay, never stored as a verdict).
+  if (cache && good.length > 0 && (good.length === results.length || article)) {
+    cache.setText(mode, text, { results: good.map((r) => pick(r, CACHED_FIELDS)), article });
   }
   for (const r of results) delete r.cacheable;
   return {
     results,
+    article,
     sessionCostUsd: budget.spent(sessionId),
     timing: { extract_ms: extractMs, total_ms: ms(started) },
   };

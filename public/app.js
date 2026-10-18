@@ -217,11 +217,13 @@ function renderResults(data, pending, clientMs) {
   renderScore(prev);
   const isMock = data.mock?.llm || data.mock?.search;
   const n = data.results.length;
+  const from = data.article?.title ? `Artículo «${data.article.title}»: ` : '';
   setStatus(
-    n
-      ? `${n} ${n === 1 ? 'afirmación comprobada' : 'afirmaciones comprobadas'} en ${formatMs(clientMs)}` +
+    from +
+      (n
+        ? `${n} ${n === 1 ? 'afirmación comprobada' : 'afirmaciones comprobadas'} en ${formatMs(clientMs)}` +
           (data.timing ? ` (extracción ${formatMs(data.timing.extract_ms)})` : '')
-      : 'No se detectaron afirmaciones comprobables en ese texto.',
+        : 'no se detectaron afirmaciones comprobables.'),
   );
   // The pending card turns into the result cards, in the same place (newest first).
   pending.replaceWith(data.results.map((r) => renderCard(r, isMock)));

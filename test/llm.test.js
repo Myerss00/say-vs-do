@@ -21,6 +21,15 @@ test('llm: sends the JSON schema as response_format when given', async () => {
   assert.deepEqual(bodies[0].response_format.json_schema.schema, schema);
 });
 
+test('llm: max_tokens defaults to 2000, can be raised per call, and is capped at 8000', async () => {
+  const bodies = [];
+  const chat = createLlmClient(config, { postJsonImpl: async (_url, { body }) => (bodies.push(body), ok) });
+  await chat([{ role: 'user', content: 'x' }]);
+  await chat([{ role: 'user', content: 'x' }], { maxTokens: 4096 });
+  await chat([{ role: 'user', content: 'x' }], { maxTokens: 999_999 });
+  assert.deepEqual(bodies.map((b) => b.max_tokens), [2000, 4096, 8000]);
+});
+
 test('llm: no schema -> plain request without response_format', async () => {
   const bodies = [];
   const chat = createLlmClient(config, { postJsonImpl: async (_url, { body }) => (bodies.push(body), ok) });

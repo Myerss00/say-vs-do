@@ -6,10 +6,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CheckRequestSchema, SessionIdSchema, MAX_TEXT_LENGTH } from './schemas.js';
 import { checkText } from './pipeline.js';
+import { ArticleError } from './article.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 
-export function createApp({ config, llm, search, budget, audit, cache = null, rateLimitPerMin = 20 }) {
+export function createApp({ config, llm, search, budget, audit, cache = null, readArticle = null, rateLimitPerMin = 20 }) {
   const app = express();
   app.disable('x-powered-by');
   app.use(
@@ -62,6 +63,7 @@ export function createApp({ config, llm, search, budget, audit, cache = null, ra
         budget,
         audit,
         cache,
+        readArticle,
         pricing: config.pricing,
         sessionId,
         maxClaims: config.limits.maxClaimsPerRequest,
@@ -69,11 +71,14 @@ export function createApp({ config, llm, search, budget, audit, cache = null, ra
       res.json({
         mock,
         results: out.results,
+        article: out.article ?? null,
         timing: out.timing,
         session_cost_usd: Number(out.sessionCostUsd.toFixed(4)),
         max_session_cost_usd: config.limits.maxSessionCostUsd,
       });
     } catch (err) {
+      // Link problems have their own clear, safe messages (no upstream details).
+      if (err instanceof ArticleError) return res.status(err.status).json({ error: err.message });
       console.error('[check] upstream failure:', err.status ?? '', err.message);
       res.status(502).json({ error: 'Upstream service failed, try again.' });
     }

@@ -6,6 +6,7 @@ import { createBudget } from './budget.js';
 import { createAuditLog } from './audit.js';
 import { createApp } from './server.js';
 import { createCache } from './cache.js';
+import { createArticleReader } from './article.js';
 
 const config = loadConfig();
 
@@ -32,6 +33,7 @@ const app = createApp({
   budget: createBudget(config.limits),
   audit: createAuditLog(),
   cache,
+  readArticle: createArticleReader(config),
 });
 
 app.listen(config.port, '127.0.0.1', () => {

@@ -147,6 +147,30 @@ test('pipeline+cache: verdicts without evidence (search failed) are not cached',
   assert.equal(cache.size(), 0);
 });
 
+test('pipeline+cache: an article link caches its real verdicts and replays them instantly; failed claims are not stored', async () => {
+  const cache = createCache({ file: tmpFile() });
+  const TWO = [CLAIM, 'The Moon is made of cheese.'];
+  const llm = async (messages) => {
+    if (messages[0].content === EXTRACT_SYSTEM) {
+      return { content: JSON.stringify({ claims: TWO.map((c) => ({ claim: c, type: 'news', language: 'en' })) }), usage: { input: 1, output: 1 } };
+    }
+    // Valid verdict for the first claim, broken output for the second.
+    const isFirst = messages[1].content.includes('Germany');
+    return { content: isFirst ? '{"verdict":"MISLEADING","confidence":0.7,"explanation":"Close.","source_url":"https://energy.example/r"}' : 'oops', usage: { input: 1, output: 1 } };
+  };
+  const readArticle = async (url) => ({ url, title: 'Energy news', text: TWO.join(' ') });
+  const link = 'https://news.example/energy';
+  const first = await checkText({ text: link, mode: 'news' }, ctx({ llm, search: okSearch, cache, readArticle }));
+  assert.equal(first.results.length, 2);
+  await cache.flush();
+
+  const again = await checkText({ text: link, mode: 'news' }, ctx({ llm: downLlm, search: downSearch, cache, readArticle: async () => assert.fail('must not re-read') }));
+  assert.equal(again.results.length, 1, 'only the real verdict is replayed');
+  assert.equal(again.results[0].verdict, 'MISLEADING');
+  assert.equal(again.results[0].cached, true);
+  assert.equal(again.article.title, 'Energy news');
+});
+
 test('pipeline+cache: without a cache the pipeline behaves as before', async () => {
   const out = await checkText({ text: CLAIM, mode: 'news' }, ctx({ ...liveLlm(), search: okSearch }));
   assert.equal(out.results[0].verdict, 'MISLEADING');
