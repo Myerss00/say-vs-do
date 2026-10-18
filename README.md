@@ -50,7 +50,7 @@ mic (Web Speech API) or pasted text
 - **Model:** NVIDIA **Nemotron 3.5 Super** served by **Nebius Token Factory** (`nvidia/Nemotron-3.5-Super-VL`, `https://api.tokenfactory.nebius.com/v1`) as the primary provider, with the **NVIDIA API** (`build.nvidia.com`, `nvidia/nemotron-3.5-super-vl-120b-a12b`) as an **automatic fallback** on timeout, rate limit (429), server error or network failure. Each card shows which provider gave the verdict ("Nemotron Â· Nebius Token Factory"). Base URLs and models come only from `.env`.
 - **Structured output:** requests use `response_format: json_schema`, so the reasoning model always returns valid JSON. If a provider does not support it, the client falls back to plain JSON prompts automatically.
 - **Evidence:** [Tavily](https://tavily.com) search, 5 results per claim.
-- **News links:** if the input is a single link, **Tavily Extract** reads the article (first 4000 chars) and its claims are checked like a transcript. Our server never fetches the URL itself (no SSRF); private/loopback hosts and non-http(s) schemes are refused.
+- **News links:** if the input is a single link, **Tavily Extract** reads the article (first 6000 chars, shown with its title and domain) and its claims are checked like a transcript. Our server never fetches the URL itself (no SSRF); private/loopback hosts and non-http(s) schemes are refused.
 - **Server:** Node.js + Express. **Frontend:** plain HTML/CSS/JS, no framework, no CDN, system fonts.
 - **Demo cache:** real verdicts are saved in `cache/claims.json` (keyed by a SHA-256 of mode + normalized text). A repeated text comes back instantly **without any network call**, so a live demo survives bad Wi-Fi. Only valid, evidence-backed verdicts are cached, and never in mock mode.
 

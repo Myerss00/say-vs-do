@@ -217,7 +217,8 @@ function renderResults(data, pending, clientMs) {
   renderScore(prev);
   const isMock = data.mock?.llm || data.mock?.search;
   const n = data.results.length;
-  const from = data.article?.title ? `Artículo «${data.article.title}»: ` : '';
+  const a = data.article;
+  const from = a?.title ? `Artículo «${a.title}»${a.domain ? ` (${a.domain})` : ''}: ` : '';
   setStatus(
     from +
       (n

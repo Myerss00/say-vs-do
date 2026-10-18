@@ -1,4 +1,4 @@
-import { test, after } from 'node:test';
+﻿import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -57,6 +57,7 @@ test('article reader: returns title + text and sends the key only to Tavily', as
   });
   const page = await read('https://n.example/a');
   assert.equal(page.title, 'EU bans new petrol cars');
+  assert.equal(page.domain, 'n.example');
   assert.ok(page.text.includes('2035'));
   assert.equal(calls[0].url, 'https://api.tavily.com/extract');
   assert.deepEqual(calls[0].body.urls, ['https://n.example/a']);
@@ -83,9 +84,9 @@ const ctx = (o) => ({ budget: createBudget({ maxSessionCostUsd: 2, maxTotalCostU
 
 test('pipeline: a link is read and its article text is checked; article is returned', async () => {
   let seenText;
-  const readArticle = async (url) => ({ url, title: 'Report', text: 'Report\nUnemployment fell to 3 percent in 2025.' });
+  const readArticle = async (url) => ({ url, title: 'Report', domain: 'n.example', text: 'Report\nUnemployment fell to 3 percent in 2025.' });
   const out = await checkText({ text: 'https://n.example/report', mode: 'news' }, ctx({ readArticle, llm: async (m) => ((seenText = m[1].content), { content: '{"claims":[]}', usage: { input: 1, output: 1 } }) }));
-  assert.deepEqual(out.article, { url: 'https://n.example/report', title: 'Report' });
+  assert.deepEqual(out.article, { url: 'https://n.example/report', title: 'Report', domain: 'n.example' });
   assert.ok(seenText.includes('Unemployment fell to 3 percent'), 'the article text, not the URL, reaches the extractor');
   assert.ok(seenText.includes('<untrusted_data'), 'article text is wrapped as untrusted data');
 });

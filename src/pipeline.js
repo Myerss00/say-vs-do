@@ -28,8 +28,8 @@ export function createSearchClient(config) {
 // (1) text -> [{claim, type, language}]
 export async function extractClaims(text, { mode = 'news', lang, llm = null, maxClaims = 5 } = {}) {
   if (!llm) return { claims: mockExtract(text, { mode, lang }).slice(0, maxClaims), usage: NO_USAGE };
-  // Up to 5000 chars of transcript or a 4000-char article: give the reasoning model room to finish.
-  const reply = await llm(buildExtractMessages(text), { jsonSchema: EXTRACT_JSON_SCHEMA, maxTokens: 4096 });
+  // Up to 5000 chars of transcript or a 6000-char article: give the reasoning model room to finish.
+  const reply = await llm(buildExtractMessages(text), { jsonSchema: EXTRACT_JSON_SCHEMA, maxTokens: 6000 });
   let claims = [];
   try {
     const raw = parseLlmJson(reply.content);
@@ -123,7 +123,7 @@ export async function checkText({ text, mode, lang }, ctx) {
     if (!ctx.readArticle) throw new ArticleError('Para leer enlaces hace falta TAVILY_API_KEY (ahora está en modo MOCK).', 400);
     const page = await ctx.readArticle(text.trim());
     budget.add(sessionId, pricing.tavilyPerSearch);
-    article = { url: page.url, title: page.title };
+    article = { url: page.url, title: page.title, domain: page.domain };
     input = page.text;
   }
 
